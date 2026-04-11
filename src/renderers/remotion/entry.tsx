@@ -10,9 +10,12 @@ const FPS = 30;
 const DURATION = 900; // 30 seconds
 
 // Remotion requires component props to extend Record<string, unknown>.
-// Cast here rather than polluting the composition interfaces.
-const MFDTradeTodayComp = MFDTradeToday as ComponentType<Record<string, unknown>>;
-const AESignalComp = AESignal as ComponentType<Record<string, unknown>>;
+// Double-cast via unknown at the entry point rather than adding index
+// signatures to all composition interfaces.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const MFDTradeTodayComp = MFDTradeToday as any as ComponentType<Record<string, unknown>>;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const AESignalComp = AESignal as any as ComponentType<Record<string, unknown>>;
 
 function Root() {
   return (
@@ -33,7 +36,7 @@ function Root() {
           ],
           cta: "Get the full brief free",
           url: "marketsfordummies.com",
-        } satisfies MFDTradeTodayProps as Record<string, unknown>}
+        } as Record<string, unknown>}
       />
       <Composition
         id="AESignal"
@@ -51,7 +54,7 @@ function Root() {
           ],
           takeaway: "Learn to direct AI or get directed out.",
           cta: "Follow @artificialeducation",
-        } satisfies AESignalProps as Record<string, unknown>}
+        } as Record<string, unknown>}
       />
     </>
   );
