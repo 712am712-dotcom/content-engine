@@ -5,7 +5,7 @@ import {
   spring,
   useCurrentFrame,
   useVideoConfig,
-} from "@remotion/core";
+} from "remotion";
 
 export interface AESignalProps {
   hook: string;

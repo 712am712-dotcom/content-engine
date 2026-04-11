@@ -3,6 +3,7 @@ import os from "os";
 import fs from "fs";
 import { bundle } from "@remotion/bundler";
 import { renderMedia, selectComposition } from "@remotion/renderer";
+
 import type { ContentJob } from "../../lib/supabase";
 import type { Renderer } from "../index";
 

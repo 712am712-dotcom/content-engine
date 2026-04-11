@@ -1,6 +1,5 @@
-import { registerRoot } from "@remotion/core";
+import { registerRoot, Composition } from "remotion";
 import React from "react";
-import { Composition } from "@remotion/core";
 import { MFDTradeToday } from "./compositions/mfd-trade-today";
 import { AESignal } from "./compositions/ae-signal";
 
