@@ -46,9 +46,20 @@ export const remotionRenderer: Renderer = {
       outputLocation: outputPath,
       inputProps: job.content,
       // Memory-conservative settings for Railway containers
-      concurrencyPerCpu: 0.5,   // half a concurrent render per CPU core
-      // Use CRF for better quality/size ratio (lower = better quality)
-      crf: 18,
+      concurrencyPerCpu: 0.5,
+      x264Preset: "veryfast",    // less memory than default "medium"
+      crf: 23,
+      // Cap FFmpeg/x264 at 2 threads — default autodetects all cores → SIGKILL
+      ffmpegOverride: ({ args }) => {
+        // Insert -threads 2 before the output file argument
+        const outIdx = args.lastIndexOf(outputPath);
+        return [
+          ...args.slice(0, outIdx),
+          "-threads",
+          "2",
+          ...args.slice(outIdx),
+        ];
+      },
     });
 
     console.log(`[remotion] Render complete: ${outputPath}`);
