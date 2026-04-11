@@ -45,6 +45,10 @@ export const remotionRenderer: Renderer = {
       codec: "h264",
       outputLocation: outputPath,
       inputProps: job.content,
+      // Memory-conservative settings for Railway containers
+      concurrencyPerCpu: 0.5,   // half a concurrent render per CPU core
+      // Use CRF for better quality/size ratio (lower = better quality)
+      crf: 18,
     });
 
     console.log(`[remotion] Render complete: ${outputPath}`);
