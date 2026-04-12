@@ -11,8 +11,10 @@ app.use(cors());
 app.use(express.json());
 
 // ── Health check ─────────────────────────────────────────────────────────────
+const BUILD_SHA = process.env.RAILWAY_GIT_COMMIT_SHA?.slice(0, 7) ?? "local";
+
 app.get("/health", (_req, res) => {
-  res.json({ status: "ok", service: "content-engine", ts: new Date().toISOString() });
+  res.json({ status: "ok", service: "content-engine", sha: BUILD_SHA, ts: new Date().toISOString() });
 });
 
 // ── API routes ────────────────────────────────────────────────────────────────
