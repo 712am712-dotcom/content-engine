@@ -49,20 +49,18 @@ export const remotionRenderer: Renderer = {
       concurrency: 1,
       x264Preset: "ultrafast",  // lowest memory among presets
       crf: 28,
-      // Strip any -threads Remotion auto-injects (maps to ~60 on Railway hosts)
-      // then cap at 2 so x264 doesn't OOM the container.
-      // NOTE: in v4, args does NOT include the binary path — it's purely the arg array.
+      // Remotion's custom FFmpeg ignores global -threads for x264.
+      // Use -x264opts threads=2 instead — this sets x264's thread count directly.
+      // Insert before the last arg (the output file path).
       ffmpegOverride: ({ args }) => {
-        const filtered: string[] = [];
-        for (let i = 0; i < args.length; i++) {
-          if (args[i] === "-threads") {
-            i++; // skip the value too
-            continue;
-          }
-          filtered.push(args[i]);
-        }
-        const finalArgs = ["-threads", "2", ...filtered];
-        console.log(`[remotion] ffmpeg args[0..6]: ${finalArgs.slice(0, 6).join(" ")}`);
+        const outputFile = args[args.length - 1];
+        const rest = args.slice(0, -1);
+        const finalArgs = [
+          ...rest,
+          "-x264opts", "threads=2:lookaheadthreads=1",
+          outputFile,
+        ];
+        console.log(`[remotion] ffmpeg tail: ...${finalArgs.slice(-6).join(" ")}`);
         return finalArgs;
       },
     });
