@@ -33,8 +33,11 @@ export const remotionRenderer: Renderer = {
 
     console.log(`[remotion] Fetching compositions from bundle`);
     // v3 API: getCompositions (selectComposition doesn't exist in v3)
+    // Use system ffmpeg/ffprobe (apt-installed) — v3's CDN for its own binaries returns 403
     const compositions = await getCompositions(bundled, {
       inputProps: job.content,
+      ffmpegExecutable: "ffmpeg",
+      ffprobeExecutable: "ffprobe",
     });
     const composition = compositions.find((c) => c.id === compositionId);
     if (!composition) {
@@ -48,6 +51,9 @@ export const remotionRenderer: Renderer = {
       codec: "h264",
       outputLocation: outputPath,
       inputProps: job.content,
+      // Use system ffmpeg/ffprobe (apt-installed via nixpacks.toml)
+      ffmpegExecutable: "ffmpeg",
+      ffprobeExecutable: "ffprobe",
       // v3: concurrency is a number (parallel Chrome tabs), not concurrencyPerCpu
       concurrency: 1,
       crf: 23,
