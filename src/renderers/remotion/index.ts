@@ -45,25 +45,28 @@ export const remotionRenderer: Renderer = {
       codec: "h264",
       outputLocation: outputPath,
       inputProps: job.content,
-      // Limit parallel Chrome frame renders to 1/2 a CPU
+      // Limit parallel Chrome frame renders
       concurrencyPerCpu: 0.5,
-      // Faster preset uses less lookahead memory
       x264Preset: "veryfast",
       crf: 23,
-      // Inject global -threads 2 flag as the very first ffmpeg arg.
-      // Also pass -x264-params threads=2 so libx264 doesn't spawn 60 threads.
-      // args[0] is the ffmpeg binary path; we insert our flags right after it.
+      // Strip any -threads flag Remotion injects (it auto-detects cores → OOM),
+      // then prepend our own cap of 2 threads.
       ffmpegOverride: ({ args }) => {
         const [bin, ...rest] = args;
-        const overrideArgs = [
-          bin,
-          "-threads", "2",
-          ...rest,
-          // x264-params must come after output spec; append at end
-          "-x264-params", "threads=2:lookaheadthreads=1",
-        ];
-        console.log(`[remotion] ffmpeg args: ${overrideArgs.join(" ").slice(0, 200)}`);
-        return overrideArgs;
+
+        // Remove existing -threads <value> pairs from Remotion's arg list
+        const filtered: string[] = [];
+        for (let i = 0; i < rest.length; i++) {
+          if (rest[i] === "-threads") {
+            i++; // skip the value too
+            continue;
+          }
+          filtered.push(rest[i]);
+        }
+
+        const finalArgs = [bin, "-threads", "2", ...filtered];
+        console.log(`[remotion] ffmpeg: ${finalArgs.slice(0, 10).join(" ")} ...`);
+        return finalArgs;
       },
     });
 
