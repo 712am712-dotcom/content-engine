@@ -31,7 +31,16 @@ function useSlideUp(frame: number, fps: number, delayFrames = 0) {
   };
 }
 
-// ── Segment: Logo (0–90f) ───────────────────────────────────────────────────
+// ── Frame constants ──────────────────────────────────────────────────────────
+// Logo 0–60 (2s) | Hook 60–120 (2s) | Points 120–345 (3×75f)
+// Trade 345–420 (2.5s) | CTA 420–510 (3s)
+const LOGO_END    = 60;
+const HOOK_END    = 120;
+const POINTS_END  = 345;
+const TRADE_END   = 420;
+// CTA runs to 510 (durationInFrames)
+
+// ── Segment: Logo (0–60f) ───────────────────────────────────────────────────
 function LogoSegment({ frame, fps }: { frame: number; fps: number }) {
   const logoStyle = useSlideUp(frame, fps, 10);
   const taglineStyle = useSlideUp(frame, fps, 25);
@@ -86,7 +95,7 @@ function LogoSegment({ frame, fps }: { frame: number; fps: number }) {
   );
 }
 
-// ── Segment: Hook (90–240f) ─────────────────────────────────────────────────
+// ── Segment: Hook (60–120f) ─────────────────────────────────────────────────
 function HookSegment({
   frame,
   fps,
@@ -96,7 +105,7 @@ function HookSegment({
   fps: number;
   hook: string;
 }) {
-  const localFrame = frame - 90;
+  const localFrame = frame - LOGO_END;
   const style = useSlideUp(localFrame, fps, 5);
 
   return (
@@ -139,7 +148,7 @@ function HookSegment({
   );
 }
 
-// ── Segment: Points (240–540f, one every 100f) ──────────────────────────────
+// ── Segment: Points (120–345f, 3 × 75f) ─────────────────────────────────────
 function PointsSegment({
   frame,
   fps,
@@ -149,7 +158,7 @@ function PointsSegment({
   fps: number;
   points: string[];
 }) {
-  const localFrame = frame - 240;
+  const localFrame = frame - HOOK_END;
 
   return (
     <AbsoluteFill
@@ -179,7 +188,7 @@ function PointsSegment({
         The breakdown
       </div>
       {points.slice(0, 3).map((point, i) => {
-        const delay = i * 100;
+        const delay = i * 20;
         const style = useSlideUp(localFrame, fps, delay + 5);
         return (
           <div
@@ -219,7 +228,7 @@ function PointsSegment({
   );
 }
 
-// ── Segment: The Trade (540–750f) ───────────────────────────────────────────
+// ── Segment: The Trade (345–420f) ───────────────────────────────────────────
 function TradeSegment({
   frame,
   fps,
@@ -229,7 +238,7 @@ function TradeSegment({
   fps: number;
   points: string[];
 }) {
-  const localFrame = frame - 540;
+  const localFrame = frame - POINTS_END;
   const labelStyle = useSlideUp(localFrame, fps, 5);
   const textStyle = useSlideUp(localFrame, fps, 20);
 
@@ -276,7 +285,7 @@ function TradeSegment({
   );
 }
 
-// ── Segment: CTA (750–900f) ─────────────────────────────────────────────────
+// ── Segment: CTA (420–510f) ─────────────────────────────────────────────────
 function CTASegment({
   frame,
   fps,
@@ -288,7 +297,7 @@ function CTASegment({
   cta: string;
   url: string;
 }) {
-  const localFrame = frame - 750;
+  const localFrame = frame - TRADE_END;
   const bgOpacity = interpolate(localFrame, [0, 20], [0, 1], {
     extrapolateRight: "clamp",
   });
@@ -370,10 +379,10 @@ export function MFDTradeToday({
   const { fps } = useVideoConfig();
 
   const renderSegment = () => {
-    if (frame < 90) return <LogoSegment frame={frame} fps={fps} />;
-    if (frame < 240) return <HookSegment frame={frame} fps={fps} hook={hook} />;
-    if (frame < 540) return <PointsSegment frame={frame} fps={fps} points={points} />;
-    if (frame < 750) return <TradeSegment frame={frame} fps={fps} points={points} />;
+    if (frame < LOGO_END)   return <LogoSegment frame={frame} fps={fps} />;
+    if (frame < HOOK_END)   return <HookSegment frame={frame} fps={fps} hook={hook} />;
+    if (frame < POINTS_END) return <PointsSegment frame={frame} fps={fps} points={points} />;
+    if (frame < TRADE_END)  return <TradeSegment frame={frame} fps={fps} points={points} />;
     return <CTASegment frame={frame} fps={fps} cta={cta} url={url} />;
   };
 

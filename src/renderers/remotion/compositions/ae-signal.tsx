@@ -31,7 +31,16 @@ function useSlideUp(frame: number, fps: number, delayFrames = 0) {
   };
 }
 
-// ── Segment: Logo (0–90f) ───────────────────────────────────────────────────
+// ── Frame constants ──────────────────────────────────────────────────────────
+// Logo 0–60 (2s) | Hook 60–120 (2s) | Points 120–345 (3×75f)
+// Takeaway 345–420 (2.5s) | CTA 420–510 (3s)
+const LOGO_END     = 60;
+const HOOK_END     = 120;
+const POINTS_END   = 345;
+const TAKEAWAY_END = 420;
+// CTA runs to 510 (durationInFrames)
+
+// ── Segment: Logo (0–60f) ───────────────────────────────────────────────────
 function LogoSegment({ frame, fps }: { frame: number; fps: number }) {
   const logoStyle = useSlideUp(frame, fps, 10);
   const taglineStyle = useSlideUp(frame, fps, 25);
@@ -86,7 +95,7 @@ function LogoSegment({ frame, fps }: { frame: number; fps: number }) {
   );
 }
 
-// ── Segment: Hook (90–240f) ─────────────────────────────────────────────────
+// ── Segment: Hook (60–120f) ─────────────────────────────────────────────────
 function HookSegment({
   frame,
   fps,
@@ -96,7 +105,7 @@ function HookSegment({
   fps: number;
   hook: string;
 }) {
-  const localFrame = frame - 90;
+  const localFrame = frame - LOGO_END;
   const style = useSlideUp(localFrame, fps, 5);
 
   return (
@@ -139,7 +148,7 @@ function HookSegment({
   );
 }
 
-// ── Segment: Points (240–600f, one every ~120f) ─────────────────────────────
+// ── Segment: Points (120–345f, 3 × 75f) ─────────────────────────────────────
 function PointsSegment({
   frame,
   fps,
@@ -149,7 +158,7 @@ function PointsSegment({
   fps: number;
   points: string[];
 }) {
-  const localFrame = frame - 240;
+  const localFrame = frame - HOOK_END;
 
   return (
     <AbsoluteFill
@@ -179,7 +188,7 @@ function PointsSegment({
         The signal
       </div>
       {points.slice(0, 3).map((point, i) => {
-        const delay = i * 120;
+        const delay = i * 20;
         const style = useSlideUp(localFrame, fps, delay + 5);
         return (
           <div
@@ -219,7 +228,7 @@ function PointsSegment({
   );
 }
 
-// ── Segment: Takeaway (600–810f) ────────────────────────────────────────────
+// ── Segment: Takeaway (345–420f) ────────────────────────────────────────────
 function TakeawaySegment({
   frame,
   fps,
@@ -231,7 +240,7 @@ function TakeawaySegment({
   points: string[];
   takeaway?: string;
 }) {
-  const localFrame = frame - 600;
+  const localFrame = frame - POINTS_END;
   const labelStyle = useSlideUp(localFrame, fps, 5);
   const textStyle = useSlideUp(localFrame, fps, 20);
 
@@ -277,7 +286,7 @@ function TakeawaySegment({
   );
 }
 
-// ── Segment: CTA (810–900f) ─────────────────────────────────────────────────
+// ── Segment: CTA (420–510f) ─────────────────────────────────────────────────
 function CTASegment({
   frame,
   fps,
@@ -287,7 +296,7 @@ function CTASegment({
   fps: number;
   cta: string;
 }) {
-  const localFrame = frame - 810;
+  const localFrame = frame - TAKEAWAY_END;
   const ctaStyle = useSlideUp(localFrame, fps, 5);
   const logoStyle = useSlideUp(localFrame, fps, 20);
 
@@ -338,10 +347,10 @@ export function AESignal({ hook, points, takeaway, cta }: AESignalProps) {
   const { fps } = useVideoConfig();
 
   const renderSegment = () => {
-    if (frame < 90) return <LogoSegment frame={frame} fps={fps} />;
-    if (frame < 240) return <HookSegment frame={frame} fps={fps} hook={hook} />;
-    if (frame < 600) return <PointsSegment frame={frame} fps={fps} points={points} />;
-    if (frame < 810) return <TakeawaySegment frame={frame} fps={fps} points={points} takeaway={takeaway} />;
+    if (frame < LOGO_END)     return <LogoSegment frame={frame} fps={fps} />;
+    if (frame < HOOK_END)     return <HookSegment frame={frame} fps={fps} hook={hook} />;
+    if (frame < POINTS_END)   return <PointsSegment frame={frame} fps={fps} points={points} />;
+    if (frame < TAKEAWAY_END) return <TakeawaySegment frame={frame} fps={fps} points={points} takeaway={takeaway} />;
     return <CTASegment frame={frame} fps={fps} cta={cta ?? "Follow @artificialeducation"} />;
   };
 
