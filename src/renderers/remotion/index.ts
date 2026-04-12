@@ -51,18 +51,18 @@ export const remotionRenderer: Renderer = {
       crf: 28,
       // Strip any -threads Remotion auto-injects (maps to ~60 on Railway hosts)
       // then cap at 2 so x264 doesn't OOM the container.
+      // NOTE: in v4, args does NOT include the binary path — it's purely the arg array.
       ffmpegOverride: ({ args }) => {
-        const [bin, ...rest] = args;
         const filtered: string[] = [];
-        for (let i = 0; i < rest.length; i++) {
-          if (rest[i] === "-threads") {
-            i++; // skip the value
+        for (let i = 0; i < args.length; i++) {
+          if (args[i] === "-threads") {
+            i++; // skip the value too
             continue;
           }
-          filtered.push(rest[i]);
+          filtered.push(args[i]);
         }
-        const finalArgs = [bin, "-threads", "2", ...filtered];
-        console.log(`[remotion] ffmpeg: ${finalArgs.slice(0, 10).join(" ")}`);
+        const finalArgs = ["-threads", "2", ...filtered];
+        console.log(`[remotion] ffmpeg args[0..6]: ${finalArgs.slice(0, 6).join(" ")}`);
         return finalArgs;
       },
     });
