@@ -2,7 +2,7 @@ import path from "path";
 import os from "os";
 import fs from "fs";
 import { bundle } from "@remotion/bundler";
-import { renderMedia, selectComposition } from "@remotion/renderer";
+import { getCompositions, renderMedia } from "@remotion/renderer";
 
 import type { ContentJob } from "../../lib/supabase";
 import type { Renderer } from "../index";
@@ -31,12 +31,15 @@ export const remotionRenderer: Renderer = {
       webpackOverride: (config) => config,
     });
 
-    console.log(`[remotion] Selecting composition: ${compositionId}`);
-    const composition = await selectComposition({
-      serveUrl: bundled,
-      id: compositionId,
+    console.log(`[remotion] Fetching compositions from bundle`);
+    // v3 API: getCompositions (selectComposition doesn't exist in v3)
+    const compositions = await getCompositions(bundled, {
       inputProps: job.content,
     });
+    const composition = compositions.find((c) => c.id === compositionId);
+    if (!composition) {
+      throw new Error(`Composition "${compositionId}" not found in bundle`);
+    }
 
     console.log(`[remotion] Rendering ${compositionId} → ${outputPath}`);
     await renderMedia({
@@ -45,27 +48,23 @@ export const remotionRenderer: Renderer = {
       codec: "h264",
       outputLocation: outputPath,
       inputProps: job.content,
-      // Limit parallel Chrome frame renders
-      concurrencyPerCpu: 0.5,
-      x264Preset: "veryfast",
+      // v3: concurrency is a number (parallel Chrome tabs), not concurrencyPerCpu
+      concurrency: 1,
       crf: 23,
-      // Strip any -threads flag Remotion injects (it auto-detects cores → OOM),
-      // then prepend our own cap of 2 threads.
+      // Strip any -threads Remotion injects (auto-detects ~60 cores → OOM on Railway)
+      // then cap at 2 threads so x264 doesn't blow out the container.
       ffmpegOverride: ({ args }) => {
         const [bin, ...rest] = args;
-
-        // Remove existing -threads <value> pairs from Remotion's arg list
         const filtered: string[] = [];
         for (let i = 0; i < rest.length; i++) {
           if (rest[i] === "-threads") {
-            i++; // skip the value too
+            i++;
             continue;
           }
           filtered.push(rest[i]);
         }
-
         const finalArgs = [bin, "-threads", "2", ...filtered];
-        console.log(`[remotion] ffmpeg: ${finalArgs.slice(0, 10).join(" ")} ...`);
+        console.log(`[remotion] ffmpeg: ${finalArgs.slice(0, 8).join(" ")}`);
         return finalArgs;
       },
     });
