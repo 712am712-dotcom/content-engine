@@ -12,6 +12,8 @@ export const mfdBrand = {
     headline: "Inter",
     body: "Inter",
   },
+  // ElevenLabs voice: Adam — confident, authoritative male
+  voiceId: "pNInz6obpgDQGcFmaJgB",
 } as const;
 
 export type MFDBrand = typeof mfdBrand;

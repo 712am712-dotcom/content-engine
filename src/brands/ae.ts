@@ -12,6 +12,8 @@ export const aeBrand = {
     headline: "Inter",
     body: "Inter",
   },
+  // ElevenLabs voice: Rachel — sharp, clear female
+  voiceId: "21m00Tcm4TlvDq8ikWAM",
 } as const;
 
 export type AEBrand = typeof aeBrand;

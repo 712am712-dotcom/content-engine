@@ -1,6 +1,8 @@
 import React from "react";
 import {
   AbsoluteFill,
+  Audio,
+  Img,
   interpolate,
   spring,
   useCurrentFrame,
@@ -12,6 +14,8 @@ export interface MFDTradeTodayProps {
   points: string[];
   cta: string;
   url: string;
+  audioSrc?: string;     // data:audio/mpeg;base64,... voiceover
+  slideImages?: string[]; // array of 5 HTTPS image URLs, one per segment
 }
 
 const GOLD = "#F5C518";
@@ -374,9 +378,21 @@ export function MFDTradeToday({
   points,
   cta,
   url,
+  audioSrc,
+  slideImages,
 }: MFDTradeTodayProps) {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
+
+  // Which slide index is currently showing (0=Logo, 1=Hook, 2=Points, 3=Trade, 4=CTA)
+  const slideIndex =
+    frame < LOGO_END   ? 0
+    : frame < HOOK_END   ? 1
+    : frame < POINTS_END ? 2
+    : frame < TRADE_END  ? 3
+    : 4;
+
+  const currentImage = slideImages?.[slideIndex];
 
   const renderSegment = () => {
     if (frame < LOGO_END)   return <LogoSegment frame={frame} fps={fps} />;
@@ -388,6 +404,17 @@ export function MFDTradeToday({
 
   return (
     <AbsoluteFill style={{ backgroundColor: BG }}>
+      {/* Voiceover — spans full duration */}
+      {audioSrc && <Audio src={audioSrc} volume={1} />}
+      {/* Per-slide background image at 40% opacity behind all text */}
+      {currentImage && (
+        <AbsoluteFill>
+          <Img
+            src={currentImage}
+            style={{ width: "100%", height: "100%", objectFit: "cover", opacity: 0.4 }}
+          />
+        </AbsoluteFill>
+      )}
       {renderSegment()}
     </AbsoluteFill>
   );

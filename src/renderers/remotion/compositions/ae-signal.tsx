@@ -1,6 +1,8 @@
 import React from "react";
 import {
   AbsoluteFill,
+  Audio,
+  Img,
   interpolate,
   spring,
   useCurrentFrame,
@@ -12,6 +14,8 @@ export interface AESignalProps {
   points: string[];
   takeaway?: string;
   cta?: string;
+  audioSrc?: string;      // data:audio/mpeg;base64,... voiceover
+  slideImages?: string[]; // array of 5 HTTPS image URLs, one per segment
 }
 
 const GREEN = "#00FF88";
@@ -342,9 +346,18 @@ function CTASegment({
 }
 
 // ── Main composition ─────────────────────────────────────────────────────────
-export function AESignal({ hook, points, takeaway, cta }: AESignalProps) {
+export function AESignal({ hook, points, takeaway, cta, audioSrc, slideImages }: AESignalProps) {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
+
+  const slideIndex =
+    frame < LOGO_END     ? 0
+    : frame < HOOK_END     ? 1
+    : frame < POINTS_END   ? 2
+    : frame < TAKEAWAY_END ? 3
+    : 4;
+
+  const currentImage = slideImages?.[slideIndex];
 
   const renderSegment = () => {
     if (frame < LOGO_END)     return <LogoSegment frame={frame} fps={fps} />;
@@ -356,6 +369,17 @@ export function AESignal({ hook, points, takeaway, cta }: AESignalProps) {
 
   return (
     <AbsoluteFill style={{ backgroundColor: BG }}>
+      {/* Voiceover — spans full duration */}
+      {audioSrc && <Audio src={audioSrc} volume={1} />}
+      {/* Per-slide background image at 40% opacity behind all text */}
+      {currentImage && (
+        <AbsoluteFill>
+          <Img
+            src={currentImage}
+            style={{ width: "100%", height: "100%", objectFit: "cover", opacity: 0.4 }}
+          />
+        </AbsoluteFill>
+      )}
       {renderSegment()}
     </AbsoluteFill>
   );

@@ -6,6 +6,9 @@ import { renderMedia, selectComposition } from "@remotion/renderer";
 
 import type { ContentJob } from "../../lib/supabase";
 import type { Renderer } from "../index";
+import { getBrand } from "../../brands/index";
+import { generateVoiceover, buildVoiceoverScript } from "../../lib/elevenlabs";
+import { generateSlideImages, buildImagePrompts } from "../../lib/flux";
 
 const COMPOSITIONS: Record<string, string> = {
   "trade-today:vertical_30s":  "MFDTradeToday-vertical-30s",
@@ -14,6 +17,12 @@ const COMPOSITIONS: Record<string, string> = {
   "ae-signal:vertical_30s":    "AESignal-vertical-30s",
   "ae-signal:square_30s":      "AESignal-square-30s",
   "ae-signal:landscape_30s":   "AESignal-landscape-30s",
+};
+
+const FORMAT_DIMS: Record<string, { width: number; height: number }> = {
+  vertical_30s:  { width: 1080, height: 1920 },
+  square_30s:    { width: 1080, height: 1080 },
+  landscape_30s: { width: 1920, height: 1080 },
 };
 
 export const remotionRenderer: Renderer = {
@@ -25,10 +34,50 @@ export const remotionRenderer: Renderer = {
       throw new Error(`Unknown template/format: ${compositionKey}`);
     }
 
+    const dims = FORMAT_DIMS[format] ?? { width: 1080, height: 1920 };
+
+    // ── Optional enrichment: voiceover + background images ───────────────────
+    // Both are best-effort — failures log a warning but never block the render.
+    let audioSrc: string | null = null;
+    let slideImages: string[] | null = null;
+
+    try {
+      const brand = getBrand(job.brand);
+      const voiceId = (brand as { voiceId?: string }).voiceId;
+
+      const [audio, images] = await Promise.all([
+        voiceId
+          ? generateVoiceover(buildVoiceoverScript(job.content), voiceId).catch((err) => {
+              console.warn(`[remotion] voiceover failed (non-fatal): ${err.message}`);
+              return null;
+            })
+          : Promise.resolve(null),
+        generateSlideImages(
+          buildImagePrompts(job.brand, job.content),
+          dims.width,
+          dims.height,
+        ).catch((err) => {
+          console.warn(`[remotion] image gen failed (non-fatal): ${err.message}`);
+          return null;
+        }),
+      ]);
+
+      audioSrc    = audio;
+      slideImages = images;
+    } catch (err) {
+      console.warn(`[remotion] enrichment step failed (non-fatal): ${err}`);
+    }
+
+    // ── Merge enrichment into inputProps ─────────────────────────────────────
+    const inputProps: Record<string, unknown> = {
+      ...job.content,
+      ...(audioSrc    ? { audioSrc }    : {}),
+      ...(slideImages ? { slideImages } : {}),
+    };
+
     const entryPoint = path.resolve(__dirname, "entry.js");
     const outputDir = path.join(os.tmpdir(), "content-engine-renders");
     fs.mkdirSync(outputDir, { recursive: true });
-
     const outputPath = path.join(outputDir, `${job.id}.mp4`);
 
     console.log(`[remotion] Bundling entry point: ${entryPoint}`);
@@ -41,7 +90,7 @@ export const remotionRenderer: Renderer = {
     const composition = await selectComposition({
       serveUrl: bundled,
       id: compositionId,
-      inputProps: job.content,
+      inputProps,
     });
 
     console.log(`[remotion] Rendering ${compositionId} → ${outputPath}`);
@@ -50,13 +99,10 @@ export const remotionRenderer: Renderer = {
       serveUrl: bundled,
       codec: "h264",
       outputLocation: outputPath,
-      inputProps: job.content,
-      // Limit parallel Chrome frame renders (number of tabs, not a ratio)
+      inputProps,
       concurrency: 1,
-      x264Preset: "ultrafast",  // lowest memory among presets
+      x264Preset: "ultrafast",
       crf: 28,
-      // Cap x264 threads to prevent OOM on Railway (60 cores auto-detected).
-      // Insert -x264opts immediately after -c:v libx264 — canonical position.
       ffmpegOverride: ({ args }) => {
         const idx = args.indexOf("libx264");
         if (idx !== -1) {
@@ -68,7 +114,6 @@ export const remotionRenderer: Renderer = {
           console.log(`[remotion] ffmpeg args (${modified.length}): ${modified.join(" ")}`);
           return modified;
         }
-        console.log(`[remotion] WARN: libx264 not found in args, passing through unchanged`);
         return args;
       },
     });
