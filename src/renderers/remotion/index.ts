@@ -49,9 +49,20 @@ export const remotionRenderer: Renderer = {
       concurrency: 1,
       x264Preset: "ultrafast",  // lowest memory among presets
       crf: 28,
-      // Log full ffmpeg args to diagnose x264opts placement
+      // Cap x264 threads to prevent OOM on Railway (60 cores auto-detected).
+      // Insert -x264opts immediately after -c:v libx264 — canonical position.
       ffmpegOverride: ({ args }) => {
-        console.log(`[remotion] ffmpeg args (${args.length}): ${args.join(" ")}`);
+        const idx = args.indexOf("libx264");
+        if (idx !== -1) {
+          const modified = [
+            ...args.slice(0, idx + 1),
+            "-x264opts", "threads=2",
+            ...args.slice(idx + 1),
+          ];
+          console.log(`[remotion] ffmpeg args (${modified.length}): ${modified.join(" ")}`);
+          return modified;
+        }
+        console.log(`[remotion] WARN: libx264 not found in args, passing through unchanged`);
         return args;
       },
     });
