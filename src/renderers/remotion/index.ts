@@ -49,21 +49,10 @@ export const remotionRenderer: Renderer = {
       concurrency: 1,
       x264Preset: "ultrafast",  // lowest memory among presets
       crf: 28,
-      // Remotion's custom FFmpeg ignores global -threads for x264.
-      // Use -x264opts threads=2 instead — this sets x264's thread count directly.
-      // Cap x264 encoder threads — x264 auto-detects all cores on Railway (~60)
-      // causing OOM. -x264opts is the only way to reach libx264's thread count;
-      // global -threads is ignored by Remotion's bundled x264.
+      // Log full ffmpeg args to diagnose x264opts placement
       ffmpegOverride: ({ args }) => {
-        const outputFile = args[args.length - 1];
-        const rest = args.slice(0, -1);
-        const finalArgs = [
-          ...rest,
-          "-x264opts", "threads=2",
-          outputFile,
-        ];
-        console.log(`[remotion] ffmpeg tail: ...${finalArgs.slice(-6).join(" ")}`);
-        return finalArgs;
+        console.log(`[remotion] ffmpeg args (${args.length}): ${args.join(" ")}`);
+        return args;
       },
     });
 
