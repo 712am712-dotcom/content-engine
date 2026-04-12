@@ -8,12 +8,12 @@ import type { ContentJob } from "../../lib/supabase";
 import type { Renderer } from "../index";
 
 const COMPOSITIONS: Record<string, string> = {
-  "trade-today:vertical_30s":  "MFDTradeToday_vertical_30s",
-  "trade-today:square_30s":    "MFDTradeToday_square_30s",
-  "trade-today:landscape_30s": "MFDTradeToday_landscape_30s",
-  "ae-signal:vertical_30s":    "AESignal_vertical_30s",
-  "ae-signal:square_30s":      "AESignal_square_30s",
-  "ae-signal:landscape_30s":   "AESignal_landscape_30s",
+  "trade-today:vertical_30s":  "MFDTradeToday-vertical-30s",
+  "trade-today:square_30s":    "MFDTradeToday-square-30s",
+  "trade-today:landscape_30s": "MFDTradeToday-landscape-30s",
+  "ae-signal:vertical_30s":    "AESignal-vertical-30s",
+  "ae-signal:square_30s":      "AESignal-square-30s",
+  "ae-signal:landscape_30s":   "AESignal-landscape-30s",
 };
 
 export const remotionRenderer: Renderer = {

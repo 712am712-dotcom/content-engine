@@ -47,7 +47,7 @@ function Root() {
         ([fmt, { width, height }]) => (
           <React.Fragment key={fmt}>
             <Composition
-              id={`MFDTradeToday_${fmt}`}
+              id={`MFDTradeToday-${fmt.replace(/_/g, "-")}`}
               component={MFDTradeTodayComp}
               durationInFrames={DURATION}
               fps={FPS}
@@ -56,7 +56,7 @@ function Root() {
               defaultProps={MFD_DEFAULT_PROPS as unknown as Record<string, unknown>}
             />
             <Composition
-              id={`AESignal_${fmt}`}
+              id={`AESignal-${fmt.replace(/_/g, "-")}`}
               component={AESignalComp}
               durationInFrames={DURATION}
               fps={FPS}
