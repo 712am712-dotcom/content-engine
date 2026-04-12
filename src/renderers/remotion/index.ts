@@ -2,7 +2,7 @@ import path from "path";
 import os from "os";
 import fs from "fs";
 import { bundle } from "@remotion/bundler";
-import { getCompositions, renderMedia } from "@remotion/renderer";
+import { renderMedia, selectComposition } from "@remotion/renderer";
 
 import type { ContentJob } from "../../lib/supabase";
 import type { Renderer } from "../index";
@@ -31,18 +31,12 @@ export const remotionRenderer: Renderer = {
       webpackOverride: (config) => config,
     });
 
-    console.log(`[remotion] Fetching compositions from bundle`);
-    // v3 API: getCompositions (selectComposition doesn't exist in v3)
-    // Use system ffmpeg/ffprobe (apt-installed) — v3's CDN for its own binaries returns 403
-    const compositions = await getCompositions(bundled, {
+    console.log(`[remotion] Selecting composition: ${compositionId}`);
+    const composition = await selectComposition({
+      serveUrl: bundled,
+      id: compositionId,
       inputProps: job.content,
-      ffmpegExecutable: "ffmpeg",
-      ffprobeExecutable: "ffprobe",
     });
-    const composition = compositions.find((c) => c.id === compositionId);
-    if (!composition) {
-      throw new Error(`Composition "${compositionId}" not found in bundle`);
-    }
 
     console.log(`[remotion] Rendering ${compositionId} → ${outputPath}`);
     await renderMedia({
@@ -51,26 +45,24 @@ export const remotionRenderer: Renderer = {
       codec: "h264",
       outputLocation: outputPath,
       inputProps: job.content,
-      // Use system ffmpeg/ffprobe (apt-installed via nixpacks.toml)
-      ffmpegExecutable: "ffmpeg",
-      ffprobeExecutable: "ffprobe",
-      // v3: concurrency is a number (parallel Chrome tabs), not concurrencyPerCpu
+      // Limit parallel Chrome frame renders (number of tabs, not a ratio)
       concurrency: 1,
-      crf: 23,
-      // Strip any -threads Remotion injects (auto-detects ~60 cores → OOM on Railway)
-      // then cap at 2 threads so x264 doesn't blow out the container.
+      x264Preset: "ultrafast",  // lowest memory among presets
+      crf: 28,
+      // Strip any -threads Remotion auto-injects (maps to ~60 on Railway hosts)
+      // then cap at 2 so x264 doesn't OOM the container.
       ffmpegOverride: ({ args }) => {
         const [bin, ...rest] = args;
         const filtered: string[] = [];
         for (let i = 0; i < rest.length; i++) {
           if (rest[i] === "-threads") {
-            i++;
+            i++; // skip the value
             continue;
           }
           filtered.push(rest[i]);
         }
         const finalArgs = [bin, "-threads", "2", ...filtered];
-        console.log(`[remotion] ffmpeg: ${finalArgs.slice(0, 8).join(" ")}`);
+        console.log(`[remotion] ffmpeg: ${finalArgs.slice(0, 10).join(" ")}`);
         return finalArgs;
       },
     });
