@@ -9,9 +9,9 @@
  * without background images.
  */
 
-const BFL_BASE = "https://api.us1.bfl.ai/v1";
-const POLL_INTERVAL_MS = 1500;
-const POLL_TIMEOUT_MS = 90_000;
+const BFL_BASE = "https://api.bfl.ml/v1";
+const POLL_INTERVAL_MS = 2000;
+const POLL_TIMEOUT_MS = 120_000;
 
 function roundTo32(n: number): number {
   return Math.ceil(n / 32) * 32;
@@ -24,6 +24,7 @@ async function generateOne(
   apiKey: string,
 ): Promise<string> {
   // Submit generation request
+  console.log(`[flux] Submitting to ${BFL_BASE}/flux-pro-1.1 (${width}×${height})`);
   const submitRes = await fetch(`${BFL_BASE}/flux-pro-1.1`, {
     method: "POST",
     headers: {
