@@ -71,12 +71,16 @@ async function processNextJob(): Promise<void> {
     try { fs.unlinkSync(localPath); } catch (_) { /* non-fatal */ }
 
     // 5. Mark rendered
-    await supabase
+    const { error: renderUpdateError } = await supabase
       .from("content_jobs")
       .update({ status: "rendered", output_url: outputUrl })
       .eq("id", job.id);
 
-    console.log(`[processor] ✓ Job ${job.id} rendered → ${outputUrl}`);
+    if (renderUpdateError) {
+      console.error(`[processor] Failed to mark job ${job.id} as rendered:`, renderUpdateError.message);
+    } else {
+      console.log(`[processor] ✓ Job ${job.id} rendered → ${outputUrl}`);
+    }
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error(`[processor] ✗ Job ${job.id} failed:`, message);
