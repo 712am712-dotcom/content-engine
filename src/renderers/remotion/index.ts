@@ -8,7 +8,7 @@ import type { ContentJob } from "../../lib/supabase";
 import type { Renderer } from "../index";
 import { getBrand } from "../../brands/index";
 import { generateVoiceover, buildVoiceoverScript } from "../../lib/elevenlabs";
-import { generateSlideImages, buildImagePrompts } from "../../lib/flux";
+import { fetchSlideImages, buildImageQueries } from "../../lib/pexels";
 
 const COMPOSITIONS: Record<string, string> = {
   "trade-today:vertical_30s":  "MFDTradeToday-vertical-30s",
@@ -52,12 +52,12 @@ export const remotionRenderer: Renderer = {
               return null;
             })
           : Promise.resolve(null),
-        generateSlideImages(
-          buildImagePrompts(job.brand, job.content),
+        fetchSlideImages(
+          buildImageQueries(job.brand, job.content),
           dims.width,
           dims.height,
         ).catch((err) => {
-          console.warn(`[remotion] image gen failed (non-fatal): ${err.message}`);
+          console.warn(`[remotion] image fetch failed (non-fatal): ${err.message}`);
           return null;
         }),
       ]);
