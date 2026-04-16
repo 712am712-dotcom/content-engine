@@ -115,14 +115,14 @@ export async function fetchSlideImages(
   console.log(`[pexels] Fetching ${queries.length} images (${orientation})`);
   const start = Date.now();
 
-  const results = await Promise.all(
+  const results = (await Promise.all(
     queries.map((q, i) =>
-      searchOne(q, orientation, apiKey).catch((err) => {
+      searchOne(q, orientation, apiKey).catch((err: Error) => {
         console.warn(`[pexels] slide ${i} failed: ${err.message}`);
-        return null as unknown as string;
+        return null; // non-fatal: missing slide gets no image
       }),
     ),
-  );
+  )) as string[];
 
   const ok = results.filter(Boolean).length;
   console.log(
