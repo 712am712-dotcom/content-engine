@@ -27,11 +27,11 @@ async function uploadToStorage(jobId: string, localPath: string): Promise<string
 }
 
 async function processNextJob(): Promise<void> {
-  // 1. Claim a pending job atomically
+  // 1. Claim a scripted job atomically (Scribe must run first: pending → scripted → rendering → rendered)
   const { data: jobs, error: selectError } = await supabase
     .from("content_jobs")
     .select("*")
-    .eq("status", "pending")
+    .eq("status", "scripted")
     .order("created_at", { ascending: true })
     .limit(1);
 
@@ -49,7 +49,7 @@ async function processNextJob(): Promise<void> {
     .from("content_jobs")
     .update({ status: "rendering" })
     .eq("id", job.id)
-    .eq("status", "pending"); // guard against double-claim
+    .eq("status", "scripted"); // guard against double-claim
 
   if (updateError) {
     console.error("[processor] Failed to claim job:", updateError.message);
