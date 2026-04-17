@@ -9,7 +9,7 @@ import type { Renderer } from "../index";
 import { getBrand } from "../../brands/index";
 import { generateVoiceover, buildVoiceoverScript } from "../../lib/elevenlabs";
 import { fetchSlideImages, buildImageQueries } from "../../lib/pexels";
-import { getMusicUrl } from "../../lib/music";
+import { fetchMusicDataUrl } from "../../lib/music";
 
 const COMPOSITIONS: Record<string, string> = {
   "trade-today:vertical_30s":  "MFDTradeToday-vertical-30s",
@@ -42,13 +42,13 @@ export const remotionRenderer: Renderer = {
     let audioSrc: string | null = null;
     let wordTimings: unknown[] | null = null;
     let slideImages: string[] | null = null;
-    const musicSrc = getMusicUrl(job.brand);
+    let musicSrc: string | null = null;
 
     try {
       const brand = getBrand(job.brand);
       const voiceId = (brand as { voiceId?: string }).voiceId;
 
-      const [voiceoverResult, images] = await Promise.all([
+      const [voiceoverResult, images, music] = await Promise.all([
         voiceId
           ? generateVoiceover(buildVoiceoverScript(job.content), voiceId).catch((err) => {
               console.warn(`[remotion] voiceover failed (non-fatal): ${err.message}`);
@@ -63,11 +63,13 @@ export const remotionRenderer: Renderer = {
           console.warn(`[remotion] image fetch failed (non-fatal): ${err.message}`);
           return null;
         }),
+        fetchMusicDataUrl(job.brand),
       ]);
 
       audioSrc    = voiceoverResult?.audioSrc ?? null;
       wordTimings = voiceoverResult?.wordTimings ?? null;
       slideImages = images;
+      musicSrc    = music;
     } catch (err) {
       console.warn(`[remotion] enrichment step failed (non-fatal): ${err}`);
     }
@@ -75,10 +77,10 @@ export const remotionRenderer: Renderer = {
     // ── Merge enrichment into inputProps ─────────────────────────────────────
     const inputProps: Record<string, unknown> = {
       ...job.content,
-      ...(audioSrc    ? { audioSrc }       : {}),
-      ...(wordTimings ? { wordTimings }     : {}),
-      ...(slideImages ? { slideImages }     : {}),
-      musicSrc,
+      ...(audioSrc    ? { audioSrc }    : {}),
+      ...(wordTimings ? { wordTimings } : {}),
+      ...(slideImages ? { slideImages } : {}),
+      ...(musicSrc    ? { musicSrc }    : {}),
     };
 
     const entryPoint = path.resolve(__dirname, "entry.js");
