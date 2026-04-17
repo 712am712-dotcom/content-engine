@@ -9,6 +9,7 @@ import type { Renderer } from "../index";
 import { getBrand } from "../../brands/index";
 import { generateVoiceover, buildVoiceoverScript } from "../../lib/elevenlabs";
 import { fetchSlideImages, buildImageQueries } from "../../lib/pexels";
+import { getMusicUrl } from "../../lib/music";
 
 const COMPOSITIONS: Record<string, string> = {
   "trade-today:vertical_30s":  "MFDTradeToday-vertical-30s",
@@ -36,16 +37,18 @@ export const remotionRenderer: Renderer = {
 
     const dims = FORMAT_DIMS[format] ?? { width: 1080, height: 1920 };
 
-    // ── Optional enrichment: voiceover + background images ───────────────────
-    // Both are best-effort — failures log a warning but never block the render.
+    // ── Optional enrichment: voiceover + background images + music ──────────
+    // All are best-effort — failures log a warning but never block the render.
     let audioSrc: string | null = null;
+    let wordTimings: unknown[] | null = null;
     let slideImages: string[] | null = null;
+    const musicSrc = getMusicUrl(job.brand);
 
     try {
       const brand = getBrand(job.brand);
       const voiceId = (brand as { voiceId?: string }).voiceId;
 
-      const [audio, images] = await Promise.all([
+      const [voiceoverResult, images] = await Promise.all([
         voiceId
           ? generateVoiceover(buildVoiceoverScript(job.content), voiceId).catch((err) => {
               console.warn(`[remotion] voiceover failed (non-fatal): ${err.message}`);
@@ -62,7 +65,8 @@ export const remotionRenderer: Renderer = {
         }),
       ]);
 
-      audioSrc    = audio;
+      audioSrc    = voiceoverResult?.audioSrc ?? null;
+      wordTimings = voiceoverResult?.wordTimings ?? null;
       slideImages = images;
     } catch (err) {
       console.warn(`[remotion] enrichment step failed (non-fatal): ${err}`);
@@ -71,8 +75,10 @@ export const remotionRenderer: Renderer = {
     // ── Merge enrichment into inputProps ─────────────────────────────────────
     const inputProps: Record<string, unknown> = {
       ...job.content,
-      ...(audioSrc    ? { audioSrc }    : {}),
-      ...(slideImages ? { slideImages } : {}),
+      ...(audioSrc    ? { audioSrc }       : {}),
+      ...(wordTimings ? { wordTimings }     : {}),
+      ...(slideImages ? { slideImages }     : {}),
+      musicSrc,
     };
 
     const entryPoint = path.resolve(__dirname, "entry.js");

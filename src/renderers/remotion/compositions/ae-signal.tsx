@@ -2,20 +2,24 @@ import React from "react";
 import {
   AbsoluteFill,
   Audio,
-  Img,
   interpolate,
   spring,
   useCurrentFrame,
   useVideoConfig,
 } from "remotion";
+import type { WordTiming } from "../../../lib/elevenlabs";
+import { CaptionOverlay } from "../components/caption-overlay";
+import { KenBurnsImage, KB_DIRECTIONS } from "../components/ken-burns-image";
 
 export interface AESignalProps {
   hook: string;
   points: string[];
   takeaway?: string;
   cta?: string;
-  audioSrc?: string;      // data:audio/mpeg;base64,... voiceover
-  slideImages?: string[]; // array of 5 HTTPS image URLs, one per segment
+  audioSrc?: string;
+  wordTimings?: WordTiming[];
+  musicSrc?: string;
+  slideImages?: string[];
 }
 
 const GREEN = "#00FF88";
@@ -36,13 +40,19 @@ function useSlideUp(frame: number, fps: number, delayFrames = 0) {
 }
 
 // ── Frame constants ──────────────────────────────────────────────────────────
-// Logo 0–60 (2s) | Hook 60–120 (2s) | Points 120–345 (3×75f)
-// Takeaway 345–420 (2.5s) | CTA 420–510 (3s)
 const LOGO_END     = 60;
 const HOOK_END     = 120;
 const POINTS_END   = 345;
 const TAKEAWAY_END = 420;
-// CTA runs to 510 (durationInFrames)
+
+// Slide [start, end] pairs for Ken Burns progress calculation
+const SLIDE_RANGES: [number, number][] = [
+  [0, LOGO_END],
+  [LOGO_END, HOOK_END],
+  [HOOK_END, POINTS_END],
+  [POINTS_END, TAKEAWAY_END],
+  [TAKEAWAY_END, 510],
+];
 
 // ── Segment: Logo (0–60f) ───────────────────────────────────────────────────
 function LogoSegment({ frame, fps }: { frame: number; fps: number }) {
@@ -51,15 +61,8 @@ function LogoSegment({ frame, fps }: { frame: number; fps: number }) {
 
   return (
     <AbsoluteFill
-      style={{
-        backgroundColor: BG,
-        justifyContent: "center",
-        alignItems: "center",
-        flexDirection: "column",
-        gap: 16,
-      }}
+      style={{ justifyContent: "center", alignItems: "center", flexDirection: "column", gap: 16 }}
     >
-      {/* Green accent bar */}
       <div
         style={{
           width: interpolate(frame, [0, 30], [0, 120], { extrapolateRight: "clamp" }),
@@ -100,26 +103,13 @@ function LogoSegment({ frame, fps }: { frame: number; fps: number }) {
 }
 
 // ── Segment: Hook (60–120f) ─────────────────────────────────────────────────
-function HookSegment({
-  frame,
-  fps,
-  hook,
-}: {
-  frame: number;
-  fps: number;
-  hook: string;
-}) {
+function HookSegment({ frame, fps, hook }: { frame: number; fps: number; hook: string }) {
   const localFrame = frame - LOGO_END;
   const style = useSlideUp(localFrame, fps, 5);
 
   return (
     <AbsoluteFill
-      style={{
-        backgroundColor: BG,
-        justifyContent: "center",
-        alignItems: "flex-start",
-        padding: "0 60px",
-      }}
+      style={{ justifyContent: "center", alignItems: "flex-start", padding: "0 60px" }}
     >
       <div
         style={{
@@ -134,7 +124,6 @@ function HookSegment({
       >
         {hook}
       </div>
-      {/* Green underline accent */}
       <div
         style={{
           position: "absolute",
@@ -142,9 +131,7 @@ function HookSegment({
           left: 60,
           height: 5,
           backgroundColor: GREEN,
-          width: interpolate(localFrame, [15, 45], [0, 200], {
-            extrapolateRight: "clamp",
-          }),
+          width: interpolate(localFrame, [15, 45], [0, 200], { extrapolateRight: "clamp" }),
           borderRadius: 2,
         }}
       />
@@ -152,22 +139,13 @@ function HookSegment({
   );
 }
 
-// ── Segment: Points (120–345f, 3 × 75f) ─────────────────────────────────────
-function PointsSegment({
-  frame,
-  fps,
-  points,
-}: {
-  frame: number;
-  fps: number;
-  points: string[];
-}) {
+// ── Segment: Points (120–345f) ───────────────────────────────────────────────
+function PointsSegment({ frame, fps, points }: { frame: number; fps: number; points: string[] }) {
   const localFrame = frame - HOOK_END;
 
   return (
     <AbsoluteFill
       style={{
-        backgroundColor: BG,
         justifyContent: "center",
         alignItems: "flex-start",
         padding: "0 60px",
@@ -184,9 +162,7 @@ function PointsSegment({
           letterSpacing: 3,
           textTransform: "uppercase",
           marginBottom: 8,
-          opacity: interpolate(localFrame, [0, 15], [0, 1], {
-            extrapolateRight: "clamp",
-          }),
+          opacity: interpolate(localFrame, [0, 15], [0, 1], { extrapolateRight: "clamp" }),
         }}
       >
         The signal
@@ -195,15 +171,7 @@ function PointsSegment({
         const delay = i * 20;
         const style = useSlideUp(localFrame, fps, delay + 5);
         return (
-          <div
-            key={i}
-            style={{
-              ...style,
-              display: "flex",
-              alignItems: "flex-start",
-              gap: 20,
-            }}
-          >
+          <div key={i} style={{ ...style, display: "flex", alignItems: "flex-start", gap: 20 }}>
             <div
               style={{
                 width: 8,
@@ -234,26 +202,16 @@ function PointsSegment({
 
 // ── Segment: Takeaway (345–420f) ────────────────────────────────────────────
 function TakeawaySegment({
-  frame,
-  fps,
-  points,
-  takeaway,
-}: {
-  frame: number;
-  fps: number;
-  points: string[];
-  takeaway?: string;
-}) {
+  frame, fps, points, takeaway,
+}: { frame: number; fps: number; points: string[]; takeaway?: string }) {
   const localFrame = frame - POINTS_END;
   const labelStyle = useSlideUp(localFrame, fps, 5);
   const textStyle = useSlideUp(localFrame, fps, 20);
-
   const insight = takeaway ?? points[points.length - 1] ?? "";
 
   return (
     <AbsoluteFill
       style={{
-        backgroundColor: BG,
         justifyContent: "center",
         alignItems: "flex-start",
         padding: "0 60px",
@@ -291,28 +249,14 @@ function TakeawaySegment({
 }
 
 // ── Segment: CTA (420–510f) ─────────────────────────────────────────────────
-function CTASegment({
-  frame,
-  fps,
-  cta,
-}: {
-  frame: number;
-  fps: number;
-  cta: string;
-}) {
+function CTASegment({ frame, fps, cta }: { frame: number; fps: number; cta: string }) {
   const localFrame = frame - TAKEAWAY_END;
   const ctaStyle = useSlideUp(localFrame, fps, 5);
   const logoStyle = useSlideUp(localFrame, fps, 20);
 
   return (
     <AbsoluteFill
-      style={{
-        backgroundColor: BG,
-        justifyContent: "center",
-        alignItems: "center",
-        flexDirection: "column",
-        gap: 24,
-      }}
+      style={{ justifyContent: "center", alignItems: "center", flexDirection: "column", gap: 24 }}
     >
       <div
         style={{
@@ -346,7 +290,9 @@ function CTASegment({
 }
 
 // ── Main composition ─────────────────────────────────────────────────────────
-export function AESignal({ hook, points, takeaway, cta, audioSrc, slideImages }: AESignalProps) {
+export function AESignal({
+  hook, points, takeaway, cta, audioSrc, wordTimings, musicSrc, slideImages,
+}: AESignalProps) {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
 
@@ -358,6 +304,7 @@ export function AESignal({ hook, points, takeaway, cta, audioSrc, slideImages }:
     : 4;
 
   const currentImage = slideImages?.[slideIndex];
+  const [slideStart, slideEnd] = SLIDE_RANGES[slideIndex];
 
   const renderSegment = () => {
     if (frame < LOGO_END)     return <LogoSegment frame={frame} fps={fps} />;
@@ -369,18 +316,31 @@ export function AESignal({ hook, points, takeaway, cta, audioSrc, slideImages }:
 
   return (
     <AbsoluteFill style={{ backgroundColor: BG }}>
-      {/* Voiceover — spans full duration */}
+      {/* Background music at 20% volume — full duration */}
+      {musicSrc && <Audio src={musicSrc} volume={0.2} />}
+      {/* Voiceover at full volume — full duration */}
       {audioSrc && <Audio src={audioSrc} volume={1} />}
-      {/* Per-slide background image at 40% opacity behind all text */}
+      {/* Ken Burns background image — cinematic slow zoom/pan */}
       {currentImage && (
-        <AbsoluteFill>
-          <Img
-            src={currentImage}
-            style={{ width: "100%", height: "100%", objectFit: "cover", opacity: 0.4 }}
-          />
-        </AbsoluteFill>
+        <KenBurnsImage
+          src={currentImage}
+          frame={frame}
+          slideStart={slideStart}
+          slideDuration={slideEnd - slideStart}
+          direction={KB_DIRECTIONS[slideIndex]}
+        />
       )}
+      {/* Slide content */}
       {renderSegment()}
+      {/* Word-by-word captions synced to voiceover */}
+      {wordTimings && wordTimings.length > 0 && (
+        <CaptionOverlay
+          wordTimings={wordTimings}
+          frame={frame}
+          fps={fps}
+          accentColor={GREEN}
+        />
+      )}
     </AbsoluteFill>
   );
 }
