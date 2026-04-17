@@ -10,6 +10,7 @@ import { getBrand } from "../../brands/index";
 import { generateVoiceover, buildVoiceoverScript } from "../../lib/elevenlabs";
 import { fetchSlideImages, buildImageQueries } from "../../lib/pexels";
 import { fetchMusicDataUrl } from "../../lib/music";
+import { fetchLogoSfx } from "../../lib/sfx";
 
 const COMPOSITIONS: Record<string, string> = {
   "trade-today:vertical_30s":  "MFDTradeToday-vertical-30s",
@@ -37,18 +38,29 @@ export const remotionRenderer: Renderer = {
 
     const dims = FORMAT_DIMS[format] ?? { width: 1080, height: 1920 };
 
-    // ── Optional enrichment: voiceover + background images + music ──────────
+    // Fix 1: Log exact content so we can verify text rendering matches input
+    console.log(`[remotion] Content for job ${job.id}:\n` +
+      JSON.stringify({
+        hook:     job.content.hook,
+        points:   job.content.points,
+        ...(job.content.takeaway ? { takeaway: job.content.takeaway } : {}),
+        cta:      job.content.cta,
+        ...(job.content.url ? { url: job.content.url } : {}),
+      }, null, 2));
+
+    // ── Optional enrichment: voiceover + images + music + logo SFX ──────────
     // All are best-effort — failures log a warning but never block the render.
     let audioSrc: string | null = null;
     let wordTimings: unknown[] | null = null;
     let slideImages: string[] | null = null;
     let musicSrc: string | null = null;
+    let logoSfx: string | null = null;
 
     try {
       const brand = getBrand(job.brand);
       const voiceId = (brand as { voiceId?: string }).voiceId;
 
-      const [voiceoverResult, images, music] = await Promise.all([
+      const [voiceoverResult, images, music, sfx] = await Promise.all([
         voiceId
           ? generateVoiceover(buildVoiceoverScript(job.content), voiceId).catch((err) => {
               console.warn(`[remotion] voiceover failed (non-fatal): ${err.message}`);
@@ -64,12 +76,23 @@ export const remotionRenderer: Renderer = {
           return null;
         }),
         fetchMusicDataUrl(job.brand),
+        fetchLogoSfx(),
       ]);
 
       audioSrc    = voiceoverResult?.audioSrc ?? null;
       wordTimings = voiceoverResult?.wordTimings ?? null;
       slideImages = images;
       musicSrc    = music;
+      logoSfx     = sfx;
+
+      // Log word timings for caption sync verification
+      if (wordTimings && wordTimings.length > 0) {
+        const sample = (wordTimings as Array<{ w: string; s: number; e: number }>)
+          .slice(0, 5)
+          .map((wt) => `"${wt.w}"@${wt.s}s`)
+          .join(", ");
+        console.log(`[remotion] Word timings: ${wordTimings.length} words — first 5: ${sample}`);
+      }
     } catch (err) {
       console.warn(`[remotion] enrichment step failed (non-fatal): ${err}`);
     }
@@ -81,6 +104,7 @@ export const remotionRenderer: Renderer = {
       ...(wordTimings ? { wordTimings } : {}),
       ...(slideImages ? { slideImages } : {}),
       ...(musicSrc    ? { musicSrc }    : {}),
+      ...(logoSfx     ? { logoSfx }     : {}),
     };
 
     const entryPoint = path.resolve(__dirname, "entry.js");

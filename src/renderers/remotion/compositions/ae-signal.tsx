@@ -2,12 +2,14 @@ import React from "react";
 import {
   AbsoluteFill,
   Audio,
+  Sequence,
   interpolate,
   spring,
   useCurrentFrame,
   useVideoConfig,
 } from "remotion";
 import type { WordTiming } from "../../../lib/elevenlabs";
+import { computeSlideFrames } from "../../../lib/timing";
 import { CaptionOverlay } from "../components/caption-overlay";
 import { KenBurnsImage, KB_DIRECTIONS } from "../components/ken-burns-image";
 
@@ -20,10 +22,11 @@ export interface AESignalProps {
   wordTimings?: WordTiming[];
   musicSrc?: string;
   slideImages?: string[];
+  logoSfx?: string;
 }
 
 const GREEN = "#00FF88";
-const BG = "#0A0A0A";
+const BG    = "#0A0A0A";
 const WHITE = "#FFFFFF";
 
 function useSlideUp(frame: number, fps: number, delayFrames = 0) {
@@ -39,24 +42,9 @@ function useSlideUp(frame: number, fps: number, delayFrames = 0) {
   };
 }
 
-// ── Frame constants ──────────────────────────────────────────────────────────
-const LOGO_END     = 60;
-const HOOK_END     = 120;
-const POINTS_END   = 345;
-const TAKEAWAY_END = 420;
-
-// Slide [start, end] pairs for Ken Burns progress calculation
-const SLIDE_RANGES: [number, number][] = [
-  [0, LOGO_END],
-  [LOGO_END, HOOK_END],
-  [HOOK_END, POINTS_END],
-  [POINTS_END, TAKEAWAY_END],
-  [TAKEAWAY_END, 510],
-];
-
-// ── Segment: Logo (0–60f) ───────────────────────────────────────────────────
+// ── Segment: Logo ───────────────────────────────────────────────────────────
 function LogoSegment({ frame, fps }: { frame: number; fps: number }) {
-  const logoStyle = useSlideUp(frame, fps, 10);
+  const logoStyle    = useSlideUp(frame, fps, 10);
   const taglineStyle = useSlideUp(frame, fps, 25);
 
   return (
@@ -102,9 +90,11 @@ function LogoSegment({ frame, fps }: { frame: number; fps: number }) {
   );
 }
 
-// ── Segment: Hook (60–120f) ─────────────────────────────────────────────────
-function HookSegment({ frame, fps, hook }: { frame: number; fps: number; hook: string }) {
-  const localFrame = frame - LOGO_END;
+// ── Segment: Hook ───────────────────────────────────────────────────────────
+function HookSegment({
+  frame, fps, hook, logoEnd,
+}: { frame: number; fps: number; hook: string; logoEnd: number }) {
+  const localFrame = frame - logoEnd;
   const style = useSlideUp(localFrame, fps, 5);
 
   return (
@@ -139,9 +129,11 @@ function HookSegment({ frame, fps, hook }: { frame: number; fps: number; hook: s
   );
 }
 
-// ── Segment: Points (120–345f) ───────────────────────────────────────────────
-function PointsSegment({ frame, fps, points }: { frame: number; fps: number; points: string[] }) {
-  const localFrame = frame - HOOK_END;
+// ── Segment: Points ─────────────────────────────────────────────────────────
+function PointsSegment({
+  frame, fps, points, hookEnd,
+}: { frame: number; fps: number; points: string[]; hookEnd: number }) {
+  const localFrame = frame - hookEnd;
 
   return (
     <AbsoluteFill
@@ -200,14 +192,14 @@ function PointsSegment({ frame, fps, points }: { frame: number; fps: number; poi
   );
 }
 
-// ── Segment: Takeaway (345–420f) ────────────────────────────────────────────
+// ── Segment: Takeaway ────────────────────────────────────────────────────────
 function TakeawaySegment({
-  frame, fps, points, takeaway,
-}: { frame: number; fps: number; points: string[]; takeaway?: string }) {
-  const localFrame = frame - POINTS_END;
+  frame, fps, points, takeaway, pointsEnd,
+}: { frame: number; fps: number; points: string[]; takeaway?: string; pointsEnd: number }) {
+  const localFrame = frame - pointsEnd;
   const labelStyle = useSlideUp(localFrame, fps, 5);
-  const textStyle = useSlideUp(localFrame, fps, 20);
-  const insight = takeaway ?? points[points.length - 1] ?? "";
+  const textStyle  = useSlideUp(localFrame, fps, 20);
+  const insight    = takeaway ?? points[points.length - 1] ?? "";
 
   return (
     <AbsoluteFill
@@ -248,11 +240,13 @@ function TakeawaySegment({
   );
 }
 
-// ── Segment: CTA (420–510f) ─────────────────────────────────────────────────
-function CTASegment({ frame, fps, cta }: { frame: number; fps: number; cta: string }) {
-  const localFrame = frame - TAKEAWAY_END;
-  const ctaStyle = useSlideUp(localFrame, fps, 5);
-  const logoStyle = useSlideUp(localFrame, fps, 20);
+// ── Segment: CTA ─────────────────────────────────────────────────────────────
+function CTASegment({
+  frame, fps, cta, tradeEnd,
+}: { frame: number; fps: number; cta: string; tradeEnd: number }) {
+  const localFrame = frame - tradeEnd;
+  const ctaStyle   = useSlideUp(localFrame, fps, 5);
+  const logoStyle  = useSlideUp(localFrame, fps, 20);
 
   return (
     <AbsoluteFill
@@ -291,36 +285,61 @@ function CTASegment({ frame, fps, cta }: { frame: number; fps: number; cta: stri
 
 // ── Main composition ─────────────────────────────────────────────────────────
 export function AESignal({
-  hook, points, takeaway, cta, audioSrc, wordTimings, musicSrc, slideImages,
+  hook, points, takeaway, cta, audioSrc, wordTimings, musicSrc, slideImages, logoSfx,
 }: AESignalProps) {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
 
+  // Dynamic frame boundaries based on actual word counts
+  const tradeText = takeaway ?? points[points.length - 1] ?? "";
+  const sf = computeSlideFrames(hook, points, tradeText, fps);
+
   const slideIndex =
-    frame < LOGO_END     ? 0
-    : frame < HOOK_END     ? 1
-    : frame < POINTS_END   ? 2
-    : frame < TAKEAWAY_END ? 3
+    frame < sf.logoEnd   ? 0
+    : frame < sf.hookEnd   ? 1
+    : frame < sf.pointsEnd ? 2
+    : frame < sf.tradeEnd  ? 3
     : 4;
+
+  const SLIDE_RANGES: [number, number][] = [
+    [0, sf.logoEnd],
+    [sf.logoEnd, sf.hookEnd],
+    [sf.hookEnd, sf.pointsEnd],
+    [sf.pointsEnd, sf.tradeEnd],
+    [sf.tradeEnd, sf.total],
+  ];
 
   const currentImage = slideImages?.[slideIndex];
   const [slideStart, slideEnd] = SLIDE_RANGES[slideIndex];
 
   const renderSegment = () => {
-    if (frame < LOGO_END)     return <LogoSegment frame={frame} fps={fps} />;
-    if (frame < HOOK_END)     return <HookSegment frame={frame} fps={fps} hook={hook} />;
-    if (frame < POINTS_END)   return <PointsSegment frame={frame} fps={fps} points={points} />;
-    if (frame < TAKEAWAY_END) return <TakeawaySegment frame={frame} fps={fps} points={points} takeaway={takeaway} />;
-    return <CTASegment frame={frame} fps={fps} cta={cta ?? "Follow @artificialeducation"} />;
+    if (frame < sf.logoEnd)   return <LogoSegment frame={frame} fps={fps} />;
+    if (frame < sf.hookEnd)   return <HookSegment frame={frame} fps={fps} hook={hook} logoEnd={sf.logoEnd} />;
+    if (frame < sf.pointsEnd) return <PointsSegment frame={frame} fps={fps} points={points} hookEnd={sf.hookEnd} />;
+    if (frame < sf.tradeEnd)  return <TakeawaySegment frame={frame} fps={fps} points={points} takeaway={takeaway} pointsEnd={sf.pointsEnd} />;
+    return <CTASegment frame={frame} fps={fps} cta={cta ?? "Follow @artificialeducation"} tradeEnd={sf.tradeEnd} />;
   };
 
   return (
     <AbsoluteFill style={{ backgroundColor: BG }}>
       {/* Background music at 20% volume — full duration */}
       {musicSrc && <Audio src={musicSrc} volume={0.2} />}
-      {/* Voiceover at full volume — full duration */}
-      {audioSrc && <Audio src={audioSrc} volume={1} />}
-      {/* Ken Burns background image — cinematic slow zoom/pan */}
+
+      {/* Logo whoosh SFX — plays once at frame 0 with the logo animation */}
+      {logoSfx && (
+        <Sequence from={0} durationInFrames={sf.logoEnd}>
+          <Audio src={logoSfx} volume={0.7} />
+        </Sequence>
+      )}
+
+      {/* Voiceover starts AFTER logo is gone (frame logoEnd = 2s) */}
+      {audioSrc && (
+        <Sequence from={sf.logoEnd}>
+          <Audio src={audioSrc} volume={1} />
+        </Sequence>
+      )}
+
+      {/* Ken Burns background image */}
       {currentImage && (
         <KenBurnsImage
           src={currentImage}
@@ -330,15 +349,18 @@ export function AESignal({
           direction={KB_DIRECTIONS[slideIndex]}
         />
       )}
+
       {/* Slide content */}
       {renderSegment()}
-      {/* Word-by-word captions synced to voiceover */}
+
+      {/* Word-by-word captions — offset by logoEnd so they sync to delayed audio */}
       {wordTimings && wordTimings.length > 0 && (
         <CaptionOverlay
           wordTimings={wordTimings}
           frame={frame}
           fps={fps}
           accentColor={GREEN}
+          audioStartFrame={sf.logoEnd}
         />
       )}
     </AbsoluteFill>

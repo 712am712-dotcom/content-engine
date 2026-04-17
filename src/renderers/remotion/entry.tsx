@@ -3,9 +3,11 @@ import React from "react";
 import type { ComponentType } from "react";
 import { MFDTradeToday, type MFDTradeTodayProps } from "./compositions/mfd-trade-today";
 import { AESignal, type AESignalProps } from "./compositions/ae-signal";
+import { computeSlideFrames } from "../../lib/timing";
 
 const FPS = 30;
-const DURATION = 510; // 17s — logo(2s) + hook(2s) + 3×points(2.5s) + trade/takeaway(2.5s) + CTA(3s)
+// Fallback duration used before calculateMetadata resolves
+const DEFAULT_DURATION = 600;
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const MFDTradeTodayComp = MFDTradeToday as any as ComponentType<Record<string, unknown>>;
@@ -40,6 +42,24 @@ const AE_DEFAULT_PROPS: AESignalProps = {
   cta: "Follow @artificialeducation",
 };
 
+// ── calculateMetadata helpers ────────────────────────────────────────────────
+
+function mfdDuration(props: Record<string, unknown>): number {
+  const hook   = String(props.hook ?? "");
+  const points = (props.points as string[] | undefined) ?? [];
+  const trade  = points[points.length - 1] ?? String(props.cta ?? "");
+  return computeSlideFrames(hook, points, trade, FPS).total;
+}
+
+function aeDuration(props: Record<string, unknown>): number {
+  const hook    = String(props.hook ?? "");
+  const points  = (props.points as string[] | undefined) ?? [];
+  const trade   = String(props.takeaway ?? points[points.length - 1] ?? "");
+  return computeSlideFrames(hook, points, trade, FPS).total;
+}
+
+// ── Root ─────────────────────────────────────────────────────────────────────
+
 function Root() {
   return (
     <>
@@ -49,20 +69,26 @@ function Root() {
             <Composition
               id={`MFDTradeToday-${fmt.replace(/_/g, "-")}`}
               component={MFDTradeTodayComp}
-              durationInFrames={DURATION}
+              durationInFrames={DEFAULT_DURATION}
               fps={FPS}
               width={width}
               height={height}
               defaultProps={MFD_DEFAULT_PROPS as unknown as Record<string, unknown>}
+              calculateMetadata={({ props }) => ({
+                durationInFrames: mfdDuration(props),
+              })}
             />
             <Composition
               id={`AESignal-${fmt.replace(/_/g, "-")}`}
               component={AESignalComp}
-              durationInFrames={DURATION}
+              durationInFrames={DEFAULT_DURATION}
               fps={FPS}
               width={width}
               height={height}
               defaultProps={AE_DEFAULT_PROPS as unknown as Record<string, unknown>}
+              calculateMetadata={({ props }) => ({
+                durationInFrames: aeDuration(props),
+              })}
             />
           </React.Fragment>
         )

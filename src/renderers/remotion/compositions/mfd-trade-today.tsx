@@ -2,12 +2,14 @@ import React from "react";
 import {
   AbsoluteFill,
   Audio,
+  Sequence,
   interpolate,
   spring,
   useCurrentFrame,
   useVideoConfig,
 } from "remotion";
 import type { WordTiming } from "../../../lib/elevenlabs";
+import { computeSlideFrames } from "../../../lib/timing";
 import { CaptionOverlay } from "../components/caption-overlay";
 import { KenBurnsImage, KB_DIRECTIONS } from "../components/ken-burns-image";
 
@@ -20,10 +22,11 @@ export interface MFDTradeTodayProps {
   wordTimings?: WordTiming[];
   musicSrc?: string;
   slideImages?: string[];
+  logoSfx?: string;
 }
 
-const GOLD = "#F5C518";
-const BG = "#0A0A0A";
+const GOLD  = "#F5C518";
+const BG    = "#0A0A0A";
 const WHITE = "#FFFFFF";
 
 function useSlideUp(frame: number, fps: number, delayFrames = 0) {
@@ -39,34 +42,14 @@ function useSlideUp(frame: number, fps: number, delayFrames = 0) {
   };
 }
 
-// ── Frame constants ──────────────────────────────────────────────────────────
-const LOGO_END    = 60;
-const HOOK_END    = 120;
-const POINTS_END  = 345;
-const TRADE_END   = 420;
-
-// Slide [start, end] pairs for Ken Burns progress calculation
-const SLIDE_RANGES: [number, number][] = [
-  [0, LOGO_END],
-  [LOGO_END, HOOK_END],
-  [HOOK_END, POINTS_END],
-  [POINTS_END, TRADE_END],
-  [TRADE_END, 510],
-];
-
-// ── Segment: Logo (0–60f) ───────────────────────────────────────────────────
+// ── Segment: Logo ───────────────────────────────────────────────────────────
 function LogoSegment({ frame, fps }: { frame: number; fps: number }) {
-  const logoStyle = useSlideUp(frame, fps, 10);
+  const logoStyle    = useSlideUp(frame, fps, 10);
   const taglineStyle = useSlideUp(frame, fps, 25);
 
   return (
     <AbsoluteFill
-      style={{
-        justifyContent: "center",
-        alignItems: "center",
-        flexDirection: "column",
-        gap: 16,
-      }}
+      style={{ justifyContent: "center", alignItems: "center", flexDirection: "column", gap: 16 }}
     >
       <div
         style={{
@@ -107,9 +90,11 @@ function LogoSegment({ frame, fps }: { frame: number; fps: number }) {
   );
 }
 
-// ── Segment: Hook (60–120f) ─────────────────────────────────────────────────
-function HookSegment({ frame, fps, hook }: { frame: number; fps: number; hook: string }) {
-  const localFrame = frame - LOGO_END;
+// ── Segment: Hook ───────────────────────────────────────────────────────────
+function HookSegment({
+  frame, fps, hook, logoEnd,
+}: { frame: number; fps: number; hook: string; logoEnd: number }) {
+  const localFrame = frame - logoEnd;
   const style = useSlideUp(localFrame, fps, 5);
 
   return (
@@ -144,9 +129,11 @@ function HookSegment({ frame, fps, hook }: { frame: number; fps: number; hook: s
   );
 }
 
-// ── Segment: Points (120–345f) ───────────────────────────────────────────────
-function PointsSegment({ frame, fps, points }: { frame: number; fps: number; points: string[] }) {
-  const localFrame = frame - HOOK_END;
+// ── Segment: Points ─────────────────────────────────────────────────────────
+function PointsSegment({
+  frame, fps, points, hookEnd,
+}: { frame: number; fps: number; points: string[]; hookEnd: number }) {
+  const localFrame = frame - hookEnd;
 
   return (
     <AbsoluteFill
@@ -205,12 +192,14 @@ function PointsSegment({ frame, fps, points }: { frame: number; fps: number; poi
   );
 }
 
-// ── Segment: The Trade (345–420f) ───────────────────────────────────────────
-function TradeSegment({ frame, fps, points }: { frame: number; fps: number; points: string[] }) {
-  const localFrame = frame - POINTS_END;
+// ── Segment: The Trade ───────────────────────────────────────────────────────
+function TradeSegment({
+  frame, fps, points, pointsEnd,
+}: { frame: number; fps: number; points: string[]; pointsEnd: number }) {
+  const localFrame = frame - pointsEnd;
   const labelStyle = useSlideUp(localFrame, fps, 5);
-  const textStyle = useSlideUp(localFrame, fps, 20);
-  const insight = points[points.length - 1] ?? "";
+  const textStyle  = useSlideUp(localFrame, fps, 20);
+  const insight    = points[points.length - 1] ?? "";
 
   return (
     <AbsoluteFill
@@ -251,12 +240,14 @@ function TradeSegment({ frame, fps, points }: { frame: number; fps: number; poin
   );
 }
 
-// ── Segment: CTA (420–510f) ─────────────────────────────────────────────────
-function CTASegment({ frame, fps, cta, url }: { frame: number; fps: number; cta: string; url: string }) {
-  const localFrame = frame - TRADE_END;
-  const ctaStyle = useSlideUp(localFrame, fps, 10);
-  const urlStyle = useSlideUp(localFrame, fps, 25);
-  const logoStyle = useSlideUp(localFrame, fps, 40);
+// ── Segment: CTA ─────────────────────────────────────────────────────────────
+function CTASegment({
+  frame, fps, cta, url, tradeEnd,
+}: { frame: number; fps: number; cta: string; url: string; tradeEnd: number }) {
+  const localFrame = frame - tradeEnd;
+  const ctaStyle   = useSlideUp(localFrame, fps, 10);
+  const urlStyle   = useSlideUp(localFrame, fps, 25);
+  const logoStyle  = useSlideUp(localFrame, fps, 40);
 
   return (
     <AbsoluteFill
@@ -308,36 +299,61 @@ function CTASegment({ frame, fps, cta, url }: { frame: number; fps: number; cta:
 
 // ── Main composition ─────────────────────────────────────────────────────────
 export function MFDTradeToday({
-  hook, points, cta, url, audioSrc, wordTimings, musicSrc, slideImages,
+  hook, points, cta, url, audioSrc, wordTimings, musicSrc, slideImages, logoSfx,
 }: MFDTradeTodayProps) {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
 
+  // Dynamic frame boundaries based on actual word counts
+  const tradeText = points[points.length - 1] ?? "";
+  const sf = computeSlideFrames(hook, points, tradeText, fps);
+
   const slideIndex =
-    frame < LOGO_END   ? 0
-    : frame < HOOK_END   ? 1
-    : frame < POINTS_END ? 2
-    : frame < TRADE_END  ? 3
+    frame < sf.logoEnd   ? 0
+    : frame < sf.hookEnd   ? 1
+    : frame < sf.pointsEnd ? 2
+    : frame < sf.tradeEnd  ? 3
     : 4;
+
+  const SLIDE_RANGES: [number, number][] = [
+    [0, sf.logoEnd],
+    [sf.logoEnd, sf.hookEnd],
+    [sf.hookEnd, sf.pointsEnd],
+    [sf.pointsEnd, sf.tradeEnd],
+    [sf.tradeEnd, sf.total],
+  ];
 
   const currentImage = slideImages?.[slideIndex];
   const [slideStart, slideEnd] = SLIDE_RANGES[slideIndex];
 
   const renderSegment = () => {
-    if (frame < LOGO_END)   return <LogoSegment frame={frame} fps={fps} />;
-    if (frame < HOOK_END)   return <HookSegment frame={frame} fps={fps} hook={hook} />;
-    if (frame < POINTS_END) return <PointsSegment frame={frame} fps={fps} points={points} />;
-    if (frame < TRADE_END)  return <TradeSegment frame={frame} fps={fps} points={points} />;
-    return <CTASegment frame={frame} fps={fps} cta={cta} url={url} />;
+    if (frame < sf.logoEnd)   return <LogoSegment frame={frame} fps={fps} />;
+    if (frame < sf.hookEnd)   return <HookSegment frame={frame} fps={fps} hook={hook} logoEnd={sf.logoEnd} />;
+    if (frame < sf.pointsEnd) return <PointsSegment frame={frame} fps={fps} points={points} hookEnd={sf.hookEnd} />;
+    if (frame < sf.tradeEnd)  return <TradeSegment frame={frame} fps={fps} points={points} pointsEnd={sf.pointsEnd} />;
+    return <CTASegment frame={frame} fps={fps} cta={cta} url={url} tradeEnd={sf.tradeEnd} />;
   };
 
   return (
     <AbsoluteFill style={{ backgroundColor: BG }}>
       {/* Background music at 20% volume — full duration */}
       {musicSrc && <Audio src={musicSrc} volume={0.2} />}
-      {/* Voiceover at full volume — full duration */}
-      {audioSrc && <Audio src={audioSrc} volume={1} />}
-      {/* Ken Burns background image — cinematic slow zoom/pan */}
+
+      {/* Logo whoosh SFX — plays once at frame 0 with the logo animation */}
+      {logoSfx && (
+        <Sequence from={0} durationInFrames={sf.logoEnd}>
+          <Audio src={logoSfx} volume={0.7} />
+        </Sequence>
+      )}
+
+      {/* Voiceover starts AFTER logo is gone (frame logoEnd = 2s) */}
+      {audioSrc && (
+        <Sequence from={sf.logoEnd}>
+          <Audio src={audioSrc} volume={1} />
+        </Sequence>
+      )}
+
+      {/* Ken Burns background image */}
       {currentImage && (
         <KenBurnsImage
           src={currentImage}
@@ -347,15 +363,18 @@ export function MFDTradeToday({
           direction={KB_DIRECTIONS[slideIndex]}
         />
       )}
+
       {/* Slide content */}
       {renderSegment()}
-      {/* Word-by-word captions synced to voiceover */}
+
+      {/* Word-by-word captions — offset by logoEnd so they sync to delayed audio */}
       {wordTimings && wordTimings.length > 0 && (
         <CaptionOverlay
           wordTimings={wordTimings}
           frame={frame}
           fps={fps}
           accentColor={GOLD}
+          audioStartFrame={sf.logoEnd}
         />
       )}
     </AbsoluteFill>

@@ -5,13 +5,14 @@ import type { WordTiming } from "../../../lib/elevenlabs";
 /**
  * CaptionOverlay — word-by-word captions synced to ElevenLabs timestamps.
  *
- * Shows a line of up to WORDS_PER_LINE words at a time. The currently
- * spoken word is highlighted in the accent colour; the others are white.
- * When the active word crosses a line boundary the display advances.
+ * audioStartFrame: global frame at which the voiceover audio starts.
+ * All word timestamps (from ElevenLabs) are relative to the start of the
+ * audio file, so we convert to video-timeline time by subtracting
+ * audioStartFrame before looking up the active word.
  *
- * Styled to match native Reels/Shorts auto-captions:
- *   - Large bold Inter, black text-shadow outline
- *   - Centered in the bottom third of the frame
+ * Word transition: a word is active from its start time until the NEXT
+ * word's start time (not its own end time). This eliminates flicker and
+ * gaps between words — highlighting switches exactly when speech does.
  */
 
 const WORDS_PER_LINE = 4;
@@ -20,26 +21,42 @@ interface Props {
   wordTimings: WordTiming[];
   frame: number;
   fps: number;
-  accentColor: string; // brand accent — GREEN for AE, GOLD for MFD
+  accentColor: string;
+  audioStartFrame?: number; // global frame when voiceover starts (default 0)
 }
 
-export function CaptionOverlay({ wordTimings, frame, fps, accentColor }: Props) {
-  const currentTime = frame / fps;
+export function CaptionOverlay({
+  wordTimings,
+  frame,
+  fps,
+  accentColor,
+  audioStartFrame = 0,
+}: Props) {
+  // Don't render before the audio starts
+  if (frame < audioStartFrame) return null;
 
-  // Find the index of the word being spoken right now (last word whose start <= currentTime)
+  // Convert video frame to audio-relative time
+  const audioTime = (frame - audioStartFrame) / fps;
+
+  // Find active word: first word where audioTime is in [word.s, nextWord.s)
   let activeIdx = -1;
-  for (let i = wordTimings.length - 1; i >= 0; i--) {
-    if (currentTime >= wordTimings[i].s) { activeIdx = i; break; }
+  for (let i = 0; i < wordTimings.length; i++) {
+    const start = wordTimings[i].s;
+    // Use next word's start as the upper boundary — no gaps between words
+    const end = i + 1 < wordTimings.length
+      ? wordTimings[i + 1].s
+      : wordTimings[i].e + 0.15; // grace period after last word
+    if (audioTime >= start && audioTime < end) {
+      activeIdx = i;
+      break;
+    }
   }
-  // If we're past the last word's end, hide captions
-  if (activeIdx >= 0 && currentTime > wordTimings[activeIdx].e + 0.3) {
-    activeIdx = -1;
-  }
+
   if (activeIdx < 0) return null;
 
   // Which line is the active word in?
-  const lineStart = Math.floor(activeIdx / WORDS_PER_LINE) * WORDS_PER_LINE;
-  const lineWords = wordTimings.slice(lineStart, lineStart + WORDS_PER_LINE);
+  const lineStart   = Math.floor(activeIdx / WORDS_PER_LINE) * WORDS_PER_LINE;
+  const lineWords   = wordTimings.slice(lineStart, lineStart + WORDS_PER_LINE);
   const activeInLine = activeIdx - lineStart;
 
   return (
