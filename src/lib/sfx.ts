@@ -10,8 +10,8 @@
 
 const DEFAULT_SFX_URL =
   process.env.LOGO_SFX_URL ??
-  // Mixkit cinematic whoosh — free, no attribution required
-  "https://assets.mixkit.co/sfx/preview/mixkit-cinematic-whoosh-236.mp3";
+  // Freesound "Whoosh" by InspectorJ (CC BY 4.0) — freesound.org/people/InspectorJ/sounds/320181/
+  "https://cdn.freesound.org/previews/320/320181_1537407-lq.mp3";
 
 const FETCH_TIMEOUT_MS = 10_000;
 
