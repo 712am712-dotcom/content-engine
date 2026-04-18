@@ -10,8 +10,8 @@
 
 const DEFAULT_SFX_URL =
   process.env.LOGO_SFX_URL ??
-  // Freesound "Whoosh" by InspectorJ (CC BY 4.0) — freesound.org/people/InspectorJ/sounds/320181/
-  "https://cdn.freesound.org/previews/320/320181_1537407-lq.mp3";
+  // Freesound whoosh preview (CC BY 4.0) — freesound.org/s/709335/
+  "https://cdn.freesound.org/previews/709/709335_1089955-lq.mp3";
 
 const FETCH_TIMEOUT_MS = 10_000;
 
