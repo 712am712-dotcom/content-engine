@@ -13,9 +13,23 @@ import { fetchMusicDataUrl } from "../../lib/music";
 import { fetchLogoSfx } from "../../lib/sfx";
 
 const COMPOSITIONS: Record<string, string> = {
-  "trade-today:vertical_30s":  "MFDTradeToday-vertical-30s",
-  "trade-today:square_30s":    "MFDTradeToday-square-30s",
-  "trade-today:landscape_30s": "MFDTradeToday-landscape-30s",
+  // MFD templates — all use the MFDTradeToday composition (hook + points + cta)
+  "trade-today:vertical_30s":         "MFDTradeToday-vertical-30s",
+  "trade-today:square_30s":           "MFDTradeToday-square-30s",
+  "trade-today:landscape_30s":        "MFDTradeToday-landscape-30s",
+  "mfd-market-focus:vertical_30s":    "MFDTradeToday-vertical-30s",
+  "mfd-market-focus:square_30s":      "MFDTradeToday-square-30s",
+  "mfd-market-focus:landscape_30s":   "MFDTradeToday-landscape-30s",
+  "mfd-market-reflection:vertical_30s":   "MFDTradeToday-vertical-30s",
+  "mfd-market-reflection:square_30s":     "MFDTradeToday-square-30s",
+  "mfd-market-reflection:landscape_30s":  "MFDTradeToday-landscape-30s",
+  "mfd-news-headline:vertical_30s":   "MFDTradeToday-vertical-30s",
+  "mfd-news-headline:square_30s":     "MFDTradeToday-square-30s",
+  "mfd-news-headline:landscape_30s":  "MFDTradeToday-landscape-30s",
+  "mfd-educational:vertical_30s":     "MFDTradeToday-vertical-30s",
+  "mfd-educational:square_30s":       "MFDTradeToday-square-30s",
+  "mfd-educational:landscape_30s":    "MFDTradeToday-landscape-30s",
+  // AE templates
   "ae-signal:vertical_30s":    "AESignal-vertical-30s",
   "ae-signal:square_30s":      "AESignal-square-30s",
   "ae-signal:landscape_30s":   "AESignal-landscape-30s",
